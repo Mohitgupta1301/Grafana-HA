@@ -1,0 +1,26 @@
+postgresql:
+  username: postgres
+  password: MyNewPass@123
+  database: mydb
+
+  extraUsers:           # 👈 This ensures extra app users are created
+    - name: grafana
+      password: GrafanaPass123
+      databases:
+        - grafanadb
+
+repmgr:
+  username: repmgr
+  password: MyRepmgrPass@123
+
+pgpool:
+  adminUsername: admin
+  adminPassword: MyPgpoolPass@123
+
+service:
+  type: ClusterIP
+
+persistence:
+  enabled: true
+  size: 2Gi
+
