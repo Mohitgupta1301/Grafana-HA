@@ -1,5 +1,8 @@
 Purpose: Step-by-step operational guide to build a production-like PostgreSQL HA stack using Patroni (Postgres clustering), etcd (DCS), HAProxy + keepalived (VIP) for a stable DB endpoint, and Grafana running in Kubernetes using the HA Postgres DB. This document captures the exact setup, configuration files, verification steps, and troubleshooting tips so your team can reproduce the setup for production.
+
 <img width="548" height="610" alt="image" src="https://github.com/user-attachments/assets/905d9e13-42c8-42dc-95cc-30d1ae790479" />
+
+
 Inventory & IPs used in this document (adjust for your environment)
 •	postgres-1: 10.67.74.134
 •	postgres-2: 10.67.74.135
@@ -9,13 +12,16 @@ Inventory & IPs used in this document (adjust for your environment)
 •	Kubernetes Grafana namespace: postgres-test (Grafana installed by Helm release grafana).
 Security note: passwords in examples (like postgres or AdminPass@123) are for demo only — replace with secure random secrets in production.
 Step-by-step implementation
+
 The document below is split into independent sections. Implement each section on the indicated node(s).
 A. Prepare prerequisites on all Postgres nodes
 All Patroni nodes should have: - Ubuntu (or similar), with sudo access - postgresql package (the version you choose, e.g., 14) - python3, pip3 - git, curl, jq, build-essential (for compiling if necessary) - keepalived, haproxy installed on the HAProxy/keepalived host(s)
+
 Example command (run on each VM):
 sudo apt update -y
 sudo apt install -y postgresql-14 postgresql-client-14 python3-pip python3-venv \
   etcd keepalived haproxy jq curl build-essential libpq-dev
+  
 # Patroni (uses pip)
 sudo pip3 install "patroni[etcd]" psycopg2-binary
 If your distribution doesn’t have postgresql-14 packages you want, install whichever version you standardize on and update patroni.yml’s bin_dir accordingly.
@@ -30,6 +36,7 @@ sudo mv /tmp/etcd-${ETCD_VER}-linux-amd64/etcd /usr/local/bin/
 sudo mv /tmp/etcd-${ETCD_VER}-linux-amd64/etcdctl /usr/local/bin/
 If your VM cannot reach GitHub due to SSL/proxy issues, fetch the tarball through your corporate proxy or copy the binaries to each host.
 2. Create environment file /etc/default/etcd on each node (adjust names/IPs)
+   
 Example for postgres-1 (10.67.74.134):
 ETCD_NAME=postgres-1
 ETCD_DATA_DIR="/var/lib/etcd"
@@ -41,7 +48,8 @@ ETCD_INITIAL_CLUSTER="postgres-1=http://10.67.74.134:2380,postgres-2=http://10.6
 ETCD_INITIAL_CLUSTER_STATE="new"
 ETCD_INITIAL_CLUSTER_TOKEN="pg-etcd-cluster"
 Create equivalent files on postgres-2 and postgres-3 replacing names & IPs.
-3. Create systemd unit /etc/systemd/system/etcd.service
+
+4. Create systemd unit /etc/systemd/system/etcd.service
 [Unit]
 Description=etcd key-value store
 After=network.target
@@ -67,10 +75,12 @@ advertise-client-urls: http://10.67.74.134:2379
 initial-cluster: postgres-1=http://10.67.74.134:2380,postgres-2=http://10.67.74.135:2380,postgres-3=http://10.67.74.136:2380
 initial-cluster-state: new
 initial-cluster-token: pg-etcd-cluster
+
 5. Start etcd
 sudo systemctl daemon-reload
 sudo systemctl enable --now etcd
 sudo systemctl status etcd
+
 6. Verify etcd cluster
 export ETCDCTL_API=3
 etcdctl --endpoints="http://10.67.74.134:2379,http://10.67.74.135:2379,http://10.67.74.136:2379" endpoint health
@@ -82,6 +92,7 @@ You should have PostgreSQL installed (server) and patroni installed (via pip) on
 1. Example directory & user setup (Assuming Ubuntu packages installed):
 sudo mkdir -p /var/lib/postgresql/data
 sudo chown -R postgres:postgres /var/lib/postgresql
+
 2. Sample patroni.yml
 Place /etc/patroni.yml on each node. Only name, restapi.listen/connect_address, etcd.host and postgresql.listen/connect_address and data_dir/bin_dir vary per node.
 Common fragment (edit per node):
@@ -125,6 +136,7 @@ postgresql:
       username: replicator
       password: replpass
 •	Copy appropriate file to postgres-2/3 and change name, IPs, and restapi/listen addresses.
+
 3. Systemd unit for Patroni (on each node)
 /etc/systemd/system/patroni.service
 [Unit]
@@ -140,17 +152,20 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
+
 4. Start Patroni on each node
 sudo systemctl daemon-reload
 sudo systemctl enable --now patroni
 sudo systemctl status patroni
+
 5. Verify Patroni cluster
 From any node’s REST API:
 curl http://10.67.74.134:8008/cluster
 curl http://10.67.74.135:8008/cluster
 curl http://10.67.74.136:8008/cluster
 You should see one member with role: leader and the others as replica.
-6. Create application DB + user (Grafana example)
+
+7. Create application DB + user (Grafana example)
 Connect to current primary (use VIP once HAProxy is configured; otherwise test against current leader REST output):
 psql -U postgres -h 10.67.74.134 -d postgres
 # inside psql
