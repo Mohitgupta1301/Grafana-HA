@@ -210,6 +210,9 @@ helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 helm upgrade --install grafana grafana/grafana -n postgres-test -f values-grafana.yaml
 
+<img width="1871" height="927" alt="image" src="https://github.com/user-attachments/assets/6df36976-baea-41b3-a06a-5074bf9db749" />
+
+
 F. Tests & Failover Validation
 
 Dashboard persistence: Create dashboard → delete pods → confirm still exists.
