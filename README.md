@@ -12,6 +12,10 @@ This document captures setup, configs, verification, and troubleshooting so your
 ---
 
 ## Architecture (Quick View)
+
+<img width="548" height="610" alt="image" src="https://github.com/user-attachments/assets/d9897a90-e19d-41be-9a19-6f206e3bfd55" />
+
+
 - VIP `10.67.74.137` is the single DB endpoint apps use.
 - HAProxy decides which backend (Patroni node) is primary via Patroni REST API (`/master` or `/health`).
 - Patroni + etcd manage cluster state and automatic failover.
